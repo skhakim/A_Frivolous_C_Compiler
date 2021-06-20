@@ -1,0 +1,4 @@
+/snap/clion/152/bin/cmake/linux/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" "/home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine"
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine/cmake-build-debug
