@@ -76,27 +76,27 @@ include CMakeFiles/Mine.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/Mine.dir/flags.make
 
-CMakeFiles/Mine.dir/main.cpp.o: CMakeFiles/Mine.dir/flags.make
-CMakeFiles/Mine.dir/main.cpp.o: ../main.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="/home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine/cmake-build-debug/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/Mine.dir/main.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/Mine.dir/main.cpp.o -c "/home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine/main.cpp"
+CMakeFiles/Mine.dir/x.cpp.o: CMakeFiles/Mine.dir/flags.make
+CMakeFiles/Mine.dir/x.cpp.o: ../x.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="/home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine/cmake-build-debug/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/Mine.dir/x.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/Mine.dir/x.cpp.o -c "/home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine/x.cpp"
 
-CMakeFiles/Mine.dir/main.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/Mine.dir/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine/main.cpp" > CMakeFiles/Mine.dir/main.cpp.i
+CMakeFiles/Mine.dir/x.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/Mine.dir/x.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine/x.cpp" > CMakeFiles/Mine.dir/x.cpp.i
 
-CMakeFiles/Mine.dir/main.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/Mine.dir/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine/main.cpp" -o CMakeFiles/Mine.dir/main.cpp.s
+CMakeFiles/Mine.dir/x.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/Mine.dir/x.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine/x.cpp" -o CMakeFiles/Mine.dir/x.cpp.s
 
 # Object files for target Mine
 Mine_OBJECTS = \
-"CMakeFiles/Mine.dir/main.cpp.o"
+"CMakeFiles/Mine.dir/x.cpp.o"
 
 # External object files for target Mine
 Mine_EXTERNAL_OBJECTS =
 
-Mine: CMakeFiles/Mine.dir/main.cpp.o
+Mine: CMakeFiles/Mine.dir/x.cpp.o
 Mine: CMakeFiles/Mine.dir/build.make
 Mine: CMakeFiles/Mine.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir="/home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine/cmake-build-debug/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable Mine"

@@ -31,6 +31,7 @@ private:
     string name, info;
     symbol_info *next_in_chain;
 
+    string code;
 protected:
     symbol_info(const string &name) : name(name) {
         next_in_chain = nullptr;
@@ -38,6 +39,14 @@ protected:
 
 
 public:
+    void set_code(const string& code) {
+        this->code = code;
+    }
+
+    string get_code() {
+        return code;
+    }
+
     symbol_info(const string &name, const string &info) : name(name), info(info) {
         next_in_chain = nullptr;
     }
@@ -49,7 +58,7 @@ public:
     //chain to this symbol_info
     bool add(symbol_info *s_info, int *pos) {
         //multiplicities are not allowed
-        if (name == s_info->getName()) {
+        if (name == s_info->get_name()) {
             *pos = -1;
             return false;
         }
@@ -95,18 +104,23 @@ public:
 
     //check
     friend ostream &operator<<(ostream &os, const symbol_info *s_info) {
-        os << " < " << s_info->name << " , " << s_info->info << " >";
+        os << " < " << s_info->name << " , " << s_info->info << " , " << s_info->code << " >";
         if (s_info->next_in_chain)
             os << s_info->next_in_chain;
         return os;
     }
+
+    virtual string declaration () {
+        return code + " DW 0\r\n";
+    }
+
 
     void print_as_token(ostream &os) {
         os << "<" << info << ", " << name << ">";
     }
 
     // Getters, setters and destructor
-    const string &getName() const {
+    const string &get_name() const {
         return name;
     }
 
@@ -301,6 +315,10 @@ public:
     int dtype() {
         return _dtype+__arr_OFFSET;
     }
+
+    string declaration() {
+        return get_code() + " DW " + to_string(size) + " (0)\r\n";
+    }
 };
 
 
@@ -331,7 +349,7 @@ public:
 
     void print_basics() {
 
-        cout << "In function " << getName() << " size " << temp_vec.size() << " "  << parameters.size() << " " << endl;
+        cout << "In function " << get_name() << " size " << temp_vec.size() << " "  << parameters.size() << " " << endl;
         for(auto& p : parameters){
             cout << p.first << " " << p.second << endl;
         }
@@ -343,6 +361,9 @@ public:
         is_defined = true;
     }
 
+    string declaration() {
+        return "";
+    }
     /*template<typename T1>
     void add_variable(const string &name) {
         parameters.emplace_back(typeid(T1).name(), name);
@@ -370,7 +391,7 @@ public:
         i++; // temp_types->pop();
         //assert(temp != nullptr);
         //printf("%p %p  ... ", temp, temp_types);
-        //cout << "In match and add :3 : " << getName() << " " << ret_type << " " << __LINE__ << endl;
+        //cout << "In match and add :3 : " << get_name() << " " << ret_type << " " << __LINE__ << endl;
         //printf("%p %p  ... ", temp, temp_types);
         //temp->push(ref);
         //cout << __LINE__ << endl;
@@ -384,7 +405,7 @@ public:
     }
 
     int of_similar_type(queue<int> *args) {
-        /*cout << "In " << getName() << " : ";
+        /*cout << "In " << get_name() << " : ";
         printf("Size of this and given: %d %d\n", temp_types->size(), args->size());*/
         if(temp_vec.size() != args->size())
             return _SIZE_MISMATCH;

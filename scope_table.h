@@ -32,7 +32,7 @@ public:
             : i_buckets(no_of_buckets), parent(parent_scope), child_scope(0) { /* new add */
         ++parent_scope->child_scope;
         h_table = vector<symbol_info *>(no_of_buckets, nullptr);
-        id = parent_scope->id + "." + to_string(parent_scope->child_scope);
+        id = parent_scope->id + "_" + to_string(parent_scope->child_scope);
     }
 
     bool insert(symbol_info *s_info, string &message) {
@@ -43,7 +43,7 @@ public:
         else
             h_table[i] = s_info;
         if ((*pos) < 0) {
-            message = s_info->getName() + " already exists in current ScopeTable";
+            message = s_info->get_name() + " already exists in current ScopeTable";
             delete pos;
             return false;
         }
@@ -59,12 +59,17 @@ public:
 
     template<typename T>
     bool var_insert(const string &name, string &message) {
-        return insert(new variable_info<T>(name), message);
+        variable_info<T> *temp = new variable_info<T>(name);
+        temp->set_code(name + "$" + id);
+        return insert(temp, message);
+        //return insert(new variable_info<T>(name), message);
     }
 
     template<typename T>
     bool arr_insert(const string &name, int size, string &message) {
-        return insert(new arr_info<T>(name, size), message);
+        arr_info<T> *temp = new arr_info<T>(name, size);
+        temp->set_code(name + "@" + id);
+        return insert(temp, message);
     }
 
 
@@ -128,6 +133,15 @@ public:
         }
         os << endl;
         return os;
+    }
+
+    string declaration() {
+        string temp = ";SCOPE " + id + "\r\n";
+        for (int j = 0; j < i_buckets; ++j) {
+            if (h_table[j])
+                temp += h_table[j]->declaration();
+        }
+        return temp + "\r\n\r\n";
     }
 
     //getters and setters and destructors

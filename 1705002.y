@@ -20,11 +20,16 @@ extern string _temp;
 symbol_table table(30);
 string est(""), _var("var");
 
-FILE *lf, *ef; 
+FILE *lf, *ef, *cf; 
+char c; 
+
+stringstream var_decs; 
+unordered_map<string, stringstream> func_codes; 
 
 int no_errors;
 int error_line_no;  //this global variable to pass info to yyerror 
 int prev_error_line_no; 
+
 void yyerror(char *s)
 {
     //yyerror_multiple(s); return; 
@@ -69,9 +74,7 @@ bool name_mentioned = true;
 %code requires {
 
     typedef pair<string, int> _info; 
-    
 
-    
     typedef union mu {
         bool bval; 
         int ival; 
@@ -82,7 +85,8 @@ bool name_mentioned = true;
         string* sptr; 
         symbol_info* infoptr; 
         queue<_info*>* decs; 
-        queue<int>* args; 
+        queue<int>* args;
+
     } my_union;
 
     // string my_dtype_str[5] = {string("int"), string("float"), string("bool"), string("string"), string("void")};
@@ -91,9 +95,28 @@ bool name_mentioned = true;
         my_union val; 
         my_dtype type = _UNKNOWN; 
         string text; 
+        
+        string code;
+        string temp;
+        
     } YYSTYPE; 
 
     #define MAX(a, b) (((a) > (b)) ? (a) : (b))
+    
+    int iLabel = 0; 
+    int iTemp = -2; 
+    
+    string new_label() {
+        iLabel++;
+        return "LABEL" + to_string(iLabel); 
+    }
+    
+    string new_temp() {
+        iTemp+=2;
+        return "TEMP+" + to_string(iTemp); 
+    }
+    
+    
 }
 
 %code {
@@ -125,6 +148,34 @@ bool name_mentioned = true;
     }
     
     extern int yylineno; 
+}
+
+%code {         //stores the file things 
+    string _asm = ".MODEL SMALL\n"
+    "\n"
+    "\n"
+    ".STACK 100H\n"
+    "\n"
+    "\n"
+    ".DATA\n"
+    "CR EQU 0DH\n"
+    "LF EQU 0AH\n"
+    "\nTEMP DW %d DUP (0)\n\n" // no of temp variables 
+    "%s" // the declarations 
+    ".CODE\n"
+    "\n"
+    "MAIN PROC\n"
+    "\t;DATA SEGMENT INITIALIZATION\n"
+    "    MOV AX, @DATA\n"
+    "    MOV DS, AX\n\n"
+    "%s" // the codes of main function 
+    "\t;DOS EXIT\n"
+    "    MOV AH, 4CH\n"
+    "    INT 21H\n"
+    "\n" 
+    "MAIN ENDP\n"
+    "%s" // other functions
+    "\nEND MAIN"; 
 }
 
 %token IF ELSE FOR WHILE INT FLOAT DOUBLE CHAR RETURN VOID MAIN PRINTLN ID NL
@@ -163,6 +214,11 @@ start : program
         
 		//write your code in this block in all the similar blocks below
 		printf("\nParsing finished.\n");
+		//cout << table.declaration();  
+		
+		//fseek(cf, 0x45, )
+		
+        fprintf(cf, _asm.c_str(), 1+iTemp/2, table.declaration().c_str(), $<code>[program].c_str(), ""); 
 		break; 
 		//printf("\nShould not get printed!\n");
 	}
@@ -173,28 +229,38 @@ program : program unit {
             fprintf(lf, "Line %d: program : program unit\n\n%s\n\n", @2.last_line, $<text>$.c_str());
             
             //cout << "Done with unit : " << $<text>2 << endl; 
+            
+            $<code>$ = $<code>1 + $<code>2; 
         }
 
 	| unit{
             $<text>$ = $<text>1 ; 
             fprintf(lf, "Line %d: program : unit\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            
+            $<code>$ = $<code>1; 
         }
 	;
 	
 unit : var_declaration {
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: unit : var_declaration\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            
+            $<code>$ = $<code>1; 
         }
 
      | func_declaration{
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: unit : func_declaration\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            
+            $<code>$ = $<code>1; 
         }
 
      | func_definition{
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: unit : func_definition\n\n%s\n\n", @1.last_line, $<text>$.c_str());
             //cout << "Did you get this? " << __LINE__ << " " << $<text>$ << endl; 
+            
+            $<code>$ = $<code>1; 
         }  
         | error  {
             $<text>$ = "";
@@ -429,6 +495,8 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN { *res_q = queu
                 } compound_statement {
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3 + ' ' + $<text>4 + ' ' + $<text>[compound_statement]; 
             fprintf(lf, "Line %d: func_definition : type_specifier ID LPAREN RPAREN compound_statement\n\n%s\n\n", @[compound_statement].last_line, $<text>$.c_str());
+            
+            $<code>$ = $<code>[compound_statement]; 
         }
 
  		;		
@@ -506,6 +574,8 @@ compound_statement : LCURL { if(!func_call) {
             fprintf(lf, "Line %d: compound_statement : LCURL statements RCURL\n\n%s\n\n", @[RCURL].last_line, $<text>$.c_str());
             table.print_active_tables(lf); 
             table.exit_scope(); 
+            
+            $<code>$ = $<code>[statements]; 
         }
 
  		    | LCURL { if(!func_call) {
@@ -637,11 +707,13 @@ declaration_list : declaration_list COMMA ID{
 statements : statement{
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: statements : statement\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            $<code>$ = $<code>1; 
         }
 
 	   | statements statement{
             $<text>$ = $<text>1 + '\n' + $<text>2; 
             fprintf(lf, "Line %d: statements : statements statement\n\n%s\n\n", @2.last_line, $<text>$.c_str());
+            $<code>$ = $<code>1 + $<code>2; 
         } 
         
         | error  {
@@ -667,16 +739,20 @@ statements : statement{
 statement : var_declaration{
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: statement : var_declaration\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            $<code>$ = $<code>1; 
         }
 
 	  | expression_statement{
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: statement : expression_statement\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            $<code>$ = $<code>1; 
         }
 
 	  | compound_statement{
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: statement : compound_statement\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            
+            $<code>$ = $<code>1; 
         }
 
 	  | FOR LPAREN expression_statement expression_statement expression RPAREN statement{
@@ -777,6 +853,9 @@ expression_statement 	: SEMICOLON	{
             $<type>$ = _UNKNOWN; 
             $<text>$ = $<text>1 + ' ' + $<text>2; 
             fprintf(lf, "Line %d: expression_statement : expression SEMICOLON	\n\n%s\n\n", @2.last_line, $<text>$.c_str());
+            
+            $<code>$ = $<code>1; 
+            iTemp = -2; //reset iTemp 
         }
 
 			;
@@ -808,6 +887,9 @@ variable : ID {
             }
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: variable : ID\n\n%s\n\n", @1.last_line, $<text>$.c_str()); 
+            
+            $<val.infoptr>$ = id; 
+            $<temp>$ = id->get_code(); 
         }
 
         | ID LTHIRD expression RTHIRD {
@@ -842,7 +924,10 @@ variable : ID {
                 $<type>$ = static_cast<my_dtype>($<type>$ - _ARR_OFFSET);
             }
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3 + ' ' + $<text>4; 
-            fprintf(lf, "Line %d: variable : ID LTHIRD expression RTHIRD\n\n%s\n\n", @4.last_line, $<text>$.c_str());
+            fprintf(lf, "Line %d: variable : ID LTHIRD expression RTHIRD\n\n%s\n\n", @4.last_line, $<text>$.c_str()); 
+            
+            $<code>$ = $<code>[expression]; 
+            
         }
 
 	 ;
@@ -857,6 +942,9 @@ expression : logic_expression 	{
             $<type>$ = $<type>1; 
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: expression : logic expression\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            
+            $<temp>$ = $<temp>1;
+            $<code>$ = $<code>1; 
         }
 
 	   | variable ASSIGNOP logic_expression {
@@ -874,6 +962,12 @@ expression : logic_expression 	{
             }
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3; 
             fprintf(lf, "Line %d: expression : variable ASSIGNOP logic_expression\n\n%s\n\n", @3.last_line, $<text>$.c_str());
+            
+            $<temp>$ = $<temp>1;
+            $<code>$ = $<code>3;  
+            
+            /// beware of AX's use 
+            $<code>$ += "\tMOV AX, " + $<temp>3 + "\n\tMOV " + $<temp>$ + ", AX ; line no: " + to_string(@3.last_line) + "\n"; 
         }
 
 	   ;
@@ -884,12 +978,21 @@ logic_expression : rel_expression 	{
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: logic_expression : rel_expression\n\n%s\n\n", @1.last_line, $<text>$.c_str());
             //cout << __LINE__ << " " << $<text>1 << endl; 
+            
+            $<temp>$ = $<temp>1;
+            $<code>$ = $<code>1; 
         }
 
 		 | rel_expression LOGICOP rel_expression 	{
             $<type>$ = ($<type>1 == _VOID || $<type>3 == _VOID) ? _VOID : _INT; 
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3; 
             fprintf(lf, "Line %d: logic_expression : rel_expression LOGICOP rel_expression\n\n%s\n\n", @3.last_line, $<text>$.c_str());
+            
+            $<temp>$ = $<temp>1;
+            string to_add = ($<val.cval>[LOGICOP] == '|') ? "OR" : "AND"; 
+            $<code>$ = $<code>1 + $<code>3
+                    + to_add + $<temp>1 + ", " + $<temp>3
+                    + "; line no: " + to_string(@3.last_line) + "\n"; 
         }
 
 		 ;
@@ -898,13 +1001,24 @@ rel_expression	: simple_expression {
             //cout << __LINE__ << " " << $<text>1 << endl; 
             $<type>$ = $<type>1; 
             $<text>$ = $<text>1; 
-            fprintf(lf, "Line %d: rel_expression	: simple_expression\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            fprintf(lf, "Line %d: rel_expression	: simple_expression\n\n%s\n\n", @1.last_line, $<text>$.c_str());  
+            
+            $<temp>$ = $<temp>1;
+            $<code>$ = $<code>1; 
         }
 
 		| simple_expression RELOP simple_expression	{
             $<type>$ = ($<type>1 == _VOID || $<type>3 == _VOID) ? _VOID : _INT; 
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3; 
-            fprintf(lf, "Line %d: rel_expression	: simple_expression RELOP simple_expression\n\n%s\n\n", @3.last_line, $<text>$.c_str());
+            fprintf(lf, "Line %d: rel_expression	: simple_expression RELOP simple_expression\n\n%s\n\n", @3.last_line, $<text>$.c_str());            
+            
+            $<temp>$ = $<temp>1;
+            
+            
+            
+            $<code>$ = $<code>1 + $<code>3
+                    + "\tADD " + $<temp>1 + ", " + $<temp>3
+                    + "; line no: " + to_string(@3.last_line) + "\n"; 
         }
 
 		;
@@ -918,12 +1032,24 @@ simple_expression : term {
             ////cout << __LINE__ << endl; 
             fprintf(lf, "Line %d: simple_expression : term\n\n%s\n\n", @1.last_line, $<text>$.c_str());
             ////cout << __LINE__ << endl; 
+            
+            $<temp>$ = $<temp>1;
+            $<code>$ = $<code>1; 
         }
 
 		  | simple_expression ADDOP term {
             $<type>$ = MAX($<type>1, $<type>3); 
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3; 
             fprintf(lf, "Line %d: simple_expression : simple_expression ADDOP term\n\n%s\n\n", @3.last_line, $<text>$.c_str());
+            
+            $<temp>$ = new_temp();
+            $<code>$ = $<code>1 + $<code>[term];
+            
+            $<code>$ += "\tMOV AX, " + $<temp>[term] + ";\n"; 
+            $<code>$ += "\tMOV " + $<temp>$ + ", AX ;\n";
+            $<code>$ += "\tMOV AX, " + $<temp>1 + ";\n"; 
+            $<code>$ += "\tADD " + $<temp>$ + ", AX ;"
+                    + "; line no: " + to_string(@3.last_line) + "\n"; 
         }
 
 		  ;
@@ -932,6 +1058,9 @@ term :	unary_expression {
             $<type>$ = $<type>1; 
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: term : unary_expression\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            
+            $<temp>$ = $<temp>1; 
+            $<code>$ = $<code>[unary_expression]; 
         }
 
      |  term MULOP unary_expression  { 
@@ -976,7 +1105,12 @@ unary_expression : ADDOP unary_expression  {
             else
                 $<type>$ = $<type>2; 
             $<text>$ = $<text>1 + ' ' + $<text>2; 
-            fprintf(lf, "Line %d: unary_expression : ADDOP unary_expression\n\n%s\n\n", @2.last_line, $<text>$.c_str());
+            fprintf(lf, "Line %d: unary_expression : ADDOP unary_expression\n\n%s\n\n", @2.last_line, $<text>$.c_str()); 
+            
+            if($<val.cval>[ADDOP] == '-') {
+                $<temp>$ = $<temp>2; 
+                $<code>$ = $<code>2 + "NEG " + $<temp>$ + " ; line no: " + to_string(@$.last_line) + "\n"; 
+            }
         }
         | NOT unary_expression {
             $<text>$ = $<text>1 + ' ' + $<text>2; 
@@ -1003,6 +1137,8 @@ unary_expression : ADDOP unary_expression  {
                     break;
             }
             
+            $<temp>$ = $<temp>2; 
+            $<code>$ = $<code>2 + "NOT " + $<temp>$ + " ; line no: " + to_string(@$.last_line) + "\n"; 
             
 		 }
         | factor {
@@ -1021,6 +1157,9 @@ unary_expression : ADDOP unary_expression  {
             
             $<type>$ = $<type>1; 
             
+            $<temp>$ = $<temp>[factor];
+            
+            
 		 }
 		 ;
 	
@@ -1030,6 +1169,8 @@ factor	: variable {
 
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: factor	: variable\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            
+            $<temp>$ = $<temp>[variable]; 
         }
         | ID LPAREN argument_list RPAREN{
         
@@ -1076,6 +1217,9 @@ factor	: variable {
             $<type>$ = $<type>2; 
             $<text>$ = $<text>1+$<text>2+$<text>3; 
             fprintf(lf, "Line %d: factor : LPAREN expression RPAREN\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            
+            $<temp>$ = $<temp>[expression];  
+            $<code>$ = $<code>[expression]; 
         }
         | CONST_INT {
             $<text>$ = $<text>1; 
@@ -1085,6 +1229,11 @@ factor	: variable {
         
             $<val.ival>$ = $<val.ival>1;
             $<type>$ = _INT; 
+            
+            
+            $<temp>$ = new_temp(); 
+            $<code>$ = "\tMOV " + $<temp>$ + ", " + $<text>$ + " ; line no: " + to_string(@$.last_line) + "\n"; 
+            
         }
         | CONST_FLOAT {
             $<text>$ = $<text>1; 
@@ -1098,12 +1247,18 @@ factor	: variable {
             
             $<text>$ = $<text>1 + ' ' + $<text>2; 
             fprintf(lf, "Line %d: factor : variable INCOP\n\n%s\n\n", @$.last_line, $<text>$.c_str());
+            
+            $<temp>$ = $<temp>[variable]; 
+            $<code>$ = "INC " + $<temp>$ + " ; line no: " + to_string(@$.last_line) + "\n"; 
         }
         | variable DECOP{ 
             $<type>$ = $<type>1; 
             
             $<text>$ = $<text>1 + ' ' + $<text>2; 
             fprintf(lf, "Line %d: factor : variable DECOP\n\n%s\n\n", @$.last_line, $<text>$.c_str());
+            
+            $<val.infoptr>$ = $<val.infoptr>[variable]; 
+            $<code>$ = "DEC " + $<val.infoptr>$->get_name() + " ; line no: " + to_string(@$.last_line) + "\n"; 
         }
         ;
 	
@@ -1172,6 +1327,12 @@ int main(int argc, char *argv[])
 	ef = fopen("error.txt", "w");
 	//ef = stdout; 
 	
+	//FILE *temp = fopen("template.asm", "r"); 
+	cf = fopen("code.asm", "w"); 
+	
+	/*while(temp && cf && (c = fgetc(temp)) != EOF) 
+        fputc(c, cf); */
+	
 	yyparse();
 	//yylex();
 	
@@ -1181,6 +1342,8 @@ int main(int argc, char *argv[])
 	*/
 	
 	fclose(lf); 
+	fclose(ef);
+	fclose(cf); 
 	return 0;
 }
 

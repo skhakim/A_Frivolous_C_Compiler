@@ -142,32 +142,32 @@ Mine/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Mine.dir/build.make CMakeFiles/Mine.dir/build
 .PHONY : Mine/fast
 
-main.o: main.cpp.o
+x.o: x.cpp.o
 
-.PHONY : main.o
+.PHONY : x.o
 
 # target to build an object file
-main.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Mine.dir/build.make CMakeFiles/Mine.dir/main.cpp.o
-.PHONY : main.cpp.o
+x.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Mine.dir/build.make CMakeFiles/Mine.dir/x.cpp.o
+.PHONY : x.cpp.o
 
-main.i: main.cpp.i
+x.i: x.cpp.i
 
-.PHONY : main.i
+.PHONY : x.i
 
 # target to preprocess a source file
-main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Mine.dir/build.make CMakeFiles/Mine.dir/main.cpp.i
-.PHONY : main.cpp.i
+x.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Mine.dir/build.make CMakeFiles/Mine.dir/x.cpp.i
+.PHONY : x.cpp.i
 
-main.s: main.cpp.s
+x.s: x.cpp.s
 
-.PHONY : main.s
+.PHONY : x.s
 
 # target to generate assembly for a file
-main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Mine.dir/build.make CMakeFiles/Mine.dir/main.cpp.s
-.PHONY : main.cpp.s
+x.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Mine.dir/build.make CMakeFiles/Mine.dir/x.cpp.s
+.PHONY : x.cpp.s
 
 # Help Target
 help:
@@ -178,9 +178,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... Mine"
-	@echo "... main.o"
-	@echo "... main.i"
-	@echo "... main.s"
+	@echo "... x.o"
+	@echo "... x.i"
+	@echo "... x.s"
 .PHONY : help
 
 

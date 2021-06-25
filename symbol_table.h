@@ -115,6 +115,14 @@ public:
         //os << endl;
     }
 
+    string declaration() {
+        string temp;
+        for (scope_table *scope:scopes) {
+            temp += scope->declaration();
+        }
+        return temp;
+    }
+
     int get_no_buckets() const {
         return def_buckets;
     }

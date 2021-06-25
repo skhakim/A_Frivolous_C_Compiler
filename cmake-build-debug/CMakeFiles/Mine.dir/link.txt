@@ -1,1 +1,1 @@
-/usr/bin/c++ -g CMakeFiles/Mine.dir/main.cpp.o -o Mine 
+/usr/bin/c++ -g CMakeFiles/Mine.dir/x.cpp.o -o Mine 
