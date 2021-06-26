@@ -317,7 +317,7 @@ public:
     }
 
     string declaration() {
-        return get_code() + " DW " + to_string(size) + " (0)\r\n";
+        return get_code() + " DW " + to_string(size) + " DUP (0)\r\n";
     }
 };
 

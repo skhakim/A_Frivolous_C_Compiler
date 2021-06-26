@@ -98,13 +98,13 @@ bool name_mentioned = true;
         
         string code;
         string temp;
-        
+        string idx; 
     } YYSTYPE; 
 
     #define MAX(a, b) (((a) > (b)) ? (a) : (b))
     
     int iLabel = 0; 
-    int iTemp = -2; 
+    int iTemp = -2, iTmax = 0; 
     
     string new_label() {
         iLabel++;
@@ -160,6 +160,11 @@ bool name_mentioned = true;
     ".DATA\n"
     "CR EQU 0DH\n"
     "LF EQU 0AH\n"
+    "CF EQU 0\n"
+    "PF EQU 2\n"
+    "ZF EQU 6\n"
+    "SF EQU 7\n"
+    "OF EQU 11\n"
     "\nTEMP DW %d DUP (0)\n\n" // no of temp variables 
     "%s" // the declarations 
     ".CODE\n"
@@ -175,6 +180,90 @@ bool name_mentioned = true;
     "\n" 
     "MAIN ENDP\n"
     "%s" // other functions
+    "\n"
+    "OUTDEC PROC \n"
+    "; PRINTS AX AS A SIGNED DECIMAL INTEGER \n"
+    "; INPUT : AX \n"
+    "; OUTPUT : NONE \n"
+    "\n"
+    "    ; ALWAYS START PROC BY STORING REGISTERS\n"
+    "    PUSH AX\n"
+    "    PUSH BX\n"
+    "    PUSH CX\n"
+    "    PUSH DX \n"
+    "    \n"
+    "    ; TEST AX FOR ZERO \n"
+    "    TEST AX, AX\n"
+    "    JGE @END_IF1 \n"
+    "    \n"
+    "    ; AX IS NEGATIVE  \n"
+    "    \n"
+    "        ; SAVE THE NUMBER \n"
+    "        PUSH AX\n"
+    "        \n"
+    "        ; PRINT '-' \n"
+    "        MOV DL, '-'\n"
+    "        MOV AH, 2\n"
+    "        INT 21H \n"
+    "        \n"
+    "        ; RESTORE AX\n"
+    "        POP AX\n"
+    "        ; AX = -AX \n"
+    "        ; THIS OPERATION KEEPS |VAL| IN AX \n"
+    "        NEG AX \n"
+    "        \n"
+    "    ; AX IS NONNEGATIVE \n"
+    "    @END_IF1:\n"
+    "    \n"
+    "        ; CLEAR CX  \n"
+    "        AND CX, 0 \n"
+    "        ; BX IS OUR DIVISOR WHICH HOLDS 10D \n"
+    "        MOV BX, 10D \n"
+    "        \n"
+    "    ; A REPEAT LOOP\n"
+    "    @REPEAT_1:\n"
+    "        \n"
+    "        AND DX, 0 \n"
+    "        ; NOW (DX AX) EQUALS OUR DIVIDEND \n"
+    "        DIV BX \n"
+    "        ; PUSH THE REMAINDER\n"
+    "        PUSH DX\n"
+    "        ; ONE DIGIT MORE \n"
+    "        INC CX\n"
+    "        ; CHECKING WHETHER THE RESULT IS ZERO \n"
+    "        OR AX, AX\n"
+    "        ; IF NOT ZERO, REPEAT THE LOOP \n"
+    "        JNZ @REPEAT_1\n"
+    "                       \n"
+    "    ; FOR PRINTING CHARS, SET AH = 2\n"
+    "    MOV AH, 2\n"
+    "    \n"
+    "    ; FOR COUNT=CX TIMES \n"
+    "    @PRINT_LOOP:\n"
+    "    \n"
+    "    \n"
+    "        ; DL SHOULD CONTAIN THE RESULT \n"
+    "        POP DX\n"
+    "        ; ADD 48 TO GET THE DIGIT ASCII \n"
+    "        ADD DX, 48     \n"
+    "        INT 21H \n"
+    "        LOOP @PRINT_LOOP \n"
+    "        \n\n"
+    "    ; THE LOOP IS OVER\n"
+    "    MOV DL, CR\n"
+    "    INT 21H \n"
+    "    MOV DL, LF \n"
+    "    INT 21H\n\n"
+    "    ; REGISTERS SHOULD BE POPPED IN THE REVERSE ORDER OF THEIR INSERTION\n"
+    "    POP DX\n"
+    "    POP CX\n"
+    "    POP BX\n"
+    "    POP AX       \n"
+    "    \n"
+    "    ; RETURN TO THE CALLER \n"
+    "    RET                    \n"
+    "    \n"
+    "OUTDEC ENDP   "
     "\nEND MAIN"; 
 }
 
@@ -218,7 +307,7 @@ start : program
 		
 		//fseek(cf, 0x45, )
 		
-        fprintf(cf, _asm.c_str(), 1+iTemp/2, table.declaration().c_str(), $<code>[program].c_str(), ""); 
+        fprintf(cf, _asm.c_str(), 1+iTmax/2, table.declaration().c_str(), $<code>[program].c_str(), ""); 
 		break; 
 		//printf("\nShould not get printed!\n");
 	}
@@ -799,7 +888,7 @@ statement : var_declaration{
             fprintf(lf, "Line %d: statement : WHILE LPAREN expression RPAREN statement\n\n%s\n\n", @5.last_line, $<text>$.c_str());
         }
 
-	  | PRINTLN LPAREN ID RPAREN SEMICOLON {
+	  | PRINTLN LPAREN variable RPAREN SEMICOLON { // changed ID to variable 
             if(!table.lookup($<text>3, _temp)) {
                 error_line_no = @3.last_line; 
                 yyerror((char*)((est + "Undeclared variable " + $<text>3).c_str()));
@@ -808,6 +897,17 @@ statement : var_declaration{
             
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3 + ' ' + $<text>4 + ' ' + $<text>5; 
             fprintf(lf, "Line %d: statement : PRINTLN LPAREN ID RPAREN SEMICOLON\n\n%s\n\n", @4.last_line, $<text>$.c_str());
+            
+            $<code>$ = ""; 
+            $<temp>$ = $<val.infoptr>[variable]->get_code(); 
+            
+            if($<temp>$.find('@') != string::npos) { //an array 
+                $<code>$ += $<idx>1; 
+                $<temp>$ += "[BX]";
+            }
+            
+            $<code>$ += "\tMOV AX, " + $<temp>$
+                        + "\n\tCALL OUTDEC ; line no: " + to_string(@4.last_line) + '\n'; 
         }
 
 	  | RETURN expression SEMICOLON {
@@ -855,6 +955,7 @@ expression_statement 	: SEMICOLON	{
             fprintf(lf, "Line %d: expression_statement : expression SEMICOLON	\n\n%s\n\n", @2.last_line, $<text>$.c_str());
             
             $<code>$ = $<code>1; 
+            iTmax = MAX(iTemp, iTmax);
             iTemp = -2; //reset iTemp 
         }
 
@@ -889,7 +990,10 @@ variable : ID {
             fprintf(lf, "Line %d: variable : ID\n\n%s\n\n", @1.last_line, $<text>$.c_str()); 
             
             $<val.infoptr>$ = id; 
-            $<temp>$ = id->get_code(); 
+            $<temp>$ = new_temp(); 
+            
+            $<code>$  = "\tMOV AX, " + id->get_code() + " ;\n";
+            $<code>$ += "\tMOV " + $<temp>$ + ", AX ; line no: " + to_string(@1.last_line) + "\n";  
         }
 
         | ID LTHIRD expression RTHIRD {
@@ -928,6 +1032,16 @@ variable : ID {
             
             $<code>$ = $<code>[expression]; 
             
+            $<val.infoptr>$ = id; 
+            $<temp>$ = new_temp(); 
+            
+            $<code>$ += "\tMOV BX, " + $<temp>[expression] + " ;\n";
+            $<code>$ += "\tADD BX, BX ;\n";
+            $<code>$ += "\tMOV AX, " + id->get_code() + "[BX]\n";
+            $<code>$ += "\tMOV " + $<temp>$ + ", AX; line no: " + to_string(@1.last_line) + "\n"; 
+            
+            $<idx>$ = $<code>[expression] + "\tMOV BX, " + $<temp>[expression] + " ;\n\tADD BX, BX ;\n";
+            
         }
 
 	 ;
@@ -963,8 +1077,18 @@ expression : logic_expression 	{
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3; 
             fprintf(lf, "Line %d: expression : variable ASSIGNOP logic_expression\n\n%s\n\n", @3.last_line, $<text>$.c_str());
             
-            $<temp>$ = $<temp>1;
+            //cout << "LINE " << 1067 << endl; 
+            $<temp>$ = $<val.infoptr>1->get_code();
             $<code>$ = $<code>3;  
+            
+            //cout << "LINE " << 1071 << endl; 
+            
+            if($<temp>$.find('@') != string::npos) { //an array 
+                $<code>$ += $<idx>1; 
+                $<temp>$ += "[BX]";
+            }
+            
+            //cout << "LINE " << __LINE__ << endl; 
             
             /// beware of AX's use 
             $<code>$ += "\tMOV AX, " + $<temp>3 + "\n\tMOV " + $<temp>$ + ", AX ; line no: " + to_string(@3.last_line) + "\n"; 
@@ -983,16 +1107,19 @@ logic_expression : rel_expression 	{
             $<code>$ = $<code>1; 
         }
 
-		 | rel_expression LOGICOP rel_expression 	{
+		 | logic_expression /* rel_expression */ LOGICOP rel_expression 	{
             $<type>$ = ($<type>1 == _VOID || $<type>3 == _VOID) ? _VOID : _INT; 
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3; 
             fprintf(lf, "Line %d: logic_expression : rel_expression LOGICOP rel_expression\n\n%s\n\n", @3.last_line, $<text>$.c_str());
             
             $<temp>$ = $<temp>1;
-            string to_add = ($<val.cval>[LOGICOP] == '|') ? "OR" : "AND"; 
-            $<code>$ = $<code>1 + $<code>3
-                    + to_add + $<temp>1 + ", " + $<temp>3
-                    + "; line no: " + to_string(@3.last_line) + "\n"; 
+            string temp = ($<val.cval>[LOGICOP] == '|') ? "OR" : "AND"; 
+            $<code>$ = $<code>1 + $<code>3;
+            
+            $<code>$ += "\tMOV AX, " + $<temp>3 + " ;\n"; 
+            //$<code>$ += "\tMOV " + $<temp>$ + ", AX ;\n";
+            //$<code>$ += "\tMOV AX, " + $<temp>1 + " ;\n"; 
+            $<code>$ += "\t" + temp + " " + $<temp>1 + ", AX ; line no: " + to_string(@3.last_line) + "\n"; 
         }
 
 		 ;
@@ -1014,11 +1141,29 @@ rel_expression	: simple_expression {
             
             $<temp>$ = $<temp>1;
             
-            
+            string label = new_label(); 
             
             $<code>$ = $<code>1 + $<code>3
-                    + "\tADD " + $<temp>1 + ", " + $<temp>3
-                    + "; line no: " + to_string(@3.last_line) + "\n"; 
+                    + "\tMOV AX, " + $<temp>3 
+                    + "\n\tCMP " + $<temp>1 + ", AX"
+                    + "\n\tMOV " + $<temp>$ + ", 0"
+                    + "; line no: " + to_string(@3.last_line) + "\n";  
+                    
+            if($<text>2 == "==") 
+                $<code>$ += "\tJNE " + label + "\n"; 
+            else if($<text>2 == "!=") 
+                $<code>$ += "\tJE " + label + "\n"; 
+            else if($<text>2 == "<=") 
+                $<code>$ += "\tJNLE " + label + "\n"; 
+            else if($<text>2 == ">=") 
+                $<code>$ += "\tJNGE " + label + "\n"; 
+            else if($<text>2 == "<") 
+                $<code>$ += "\tJNL " + label + "\n"; 
+            else if($<text>2 == ">") 
+                $<code>$ += "\tJNG " + label + "\n"; 
+            
+            
+            $<code>$ += "\n\tMOV " + $<temp>$ + ", 1 ; line no: " + to_string(@3.last_line) + "\n\n" + label + ":\n"; 
         }
 
 		;
@@ -1042,14 +1187,15 @@ simple_expression : term {
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3; 
             fprintf(lf, "Line %d: simple_expression : simple_expression ADDOP term\n\n%s\n\n", @3.last_line, $<text>$.c_str());
             
-            $<temp>$ = new_temp();
+            $<temp>$ = $<temp>1;
             $<code>$ = $<code>1 + $<code>[term];
             
-            $<code>$ += "\tMOV AX, " + $<temp>[term] + ";\n"; 
-            $<code>$ += "\tMOV " + $<temp>$ + ", AX ;\n";
-            $<code>$ += "\tMOV AX, " + $<temp>1 + ";\n"; 
-            $<code>$ += "\tADD " + $<temp>$ + ", AX ;"
-                    + "; line no: " + to_string(@3.last_line) + "\n"; 
+            string temp = ($<val.cval>[ADDOP] == '-') ? "SUB" : "ADD"; 
+            
+            $<code>$ += "\tMOV AX, " + $<temp>[term] + " ;\n"; 
+            //$<code>$ += "\tMOV " + $<temp>$ + ", AX ;\n";
+            //$<code>$ += "\tMOV AX, " + $<temp>1 + " ;\n"; 
+            $<code>$ += "\t" + temp + " " + $<temp>$ + ", AX ; line no: " + to_string(@3.last_line) + "\n"; 
         }
 
 		  ;
@@ -1092,6 +1238,26 @@ term :	unary_expression {
             // if(!$<val.ival>3 )
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3; 
             fprintf(lf, "Line %d: term : term MULOP unary_expression\n\n%s\n\n", @3.last_line, $<text>$.c_str());
+            
+            $<code>$ = $<code>1 + $<code>3;
+            $<temp>$ = $<temp>1; 
+            
+            if($<val.cval>2 == '*') {
+                $<code>$ += "\tMOV AX, " + $<temp>1 + "\n";
+                $<code>$ += "\tIMUL " + $<temp>3 + "\n"; 
+                $<code>$ += "\tMOV " + $<temp>$ + ", AX"; 
+            }
+            else {
+                $<code>$ += "\tXOR DX, DX\n";
+                $<code>$ += "\tMOV AX, " + $<temp>1 + "\n";
+                $<code>$ += "\tIDIV " + $<temp>3 + "\n"; 
+                if($<val.cval>2 == '/')
+                    $<code>$ += "\tMOV " + $<temp>$ + ", AX";
+                else if($<val.cval>2 == '%')
+                    $<code>$ += "\tMOV " + $<temp>$ + ", DX";
+            }
+            
+            $<code>$ += " ; line no: " + to_string(@3.last_line) + "\n"; 
         }
      ;
 
@@ -1109,7 +1275,7 @@ unary_expression : ADDOP unary_expression  {
             
             if($<val.cval>[ADDOP] == '-') {
                 $<temp>$ = $<temp>2; 
-                $<code>$ = $<code>2 + "NEG " + $<temp>$ + " ; line no: " + to_string(@$.last_line) + "\n"; 
+                $<code>$ = $<code>2 + "\tNEG " + $<temp>$ + " ; line no: " + to_string(@$.last_line) + "\n"; 
             }
         }
         | NOT unary_expression {
@@ -1138,7 +1304,7 @@ unary_expression : ADDOP unary_expression  {
             }
             
             $<temp>$ = $<temp>2; 
-            $<code>$ = $<code>2 + "NOT " + $<temp>$ + " ; line no: " + to_string(@$.last_line) + "\n"; 
+            $<code>$ = $<code>2 + "\tNOT " + $<temp>$ + " ; line no: " + to_string(@$.last_line) + "\n"; 
             
 		 }
         | factor {
@@ -1170,6 +1336,7 @@ factor	: variable {
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: factor	: variable\n\n%s\n\n", @1.last_line, $<text>$.c_str());
             
+            $<code>$ = $<code>1; 
             $<temp>$ = $<temp>[variable]; 
         }
         | ID LPAREN argument_list RPAREN{
@@ -1249,7 +1416,9 @@ factor	: variable {
             fprintf(lf, "Line %d: factor : variable INCOP\n\n%s\n\n", @$.last_line, $<text>$.c_str());
             
             $<temp>$ = $<temp>[variable]; 
-            $<code>$ = "INC " + $<temp>$ + " ; line no: " + to_string(@$.last_line) + "\n"; 
+            $<code>$ = "\tMOV AX, " + $<val.infoptr>1->get_code(); 
+            $<code>$ += "\n\tMOV " + $<temp>$ + ", AX";  
+            $<code>$ += "\n\tINC " + $<val.infoptr>1->get_code() + " ; line no: " + to_string(@$.last_line) + "\n"; 
         }
         | variable DECOP{ 
             $<type>$ = $<type>1; 
@@ -1257,8 +1426,10 @@ factor	: variable {
             $<text>$ = $<text>1 + ' ' + $<text>2; 
             fprintf(lf, "Line %d: factor : variable DECOP\n\n%s\n\n", @$.last_line, $<text>$.c_str());
             
-            $<val.infoptr>$ = $<val.infoptr>[variable]; 
-            $<code>$ = "DEC " + $<val.infoptr>$->get_name() + " ; line no: " + to_string(@$.last_line) + "\n"; 
+            $<temp>$ = $<temp>[variable];  
+            $<code>$ = "\tMOV AX, " + $<val.infoptr>1->get_code(); 
+            $<code>$ += "\n\tMOV " + $<temp>$ + ", AX";  
+            $<code>$ += "\n\tDEC " + $<val.infoptr>1->get_code() + " ; line no: " + to_string(@$.last_line) + "\n"; 
         }
         ;
 	

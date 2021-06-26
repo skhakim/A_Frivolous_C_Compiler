@@ -21,6 +21,13 @@ typedef enum dt_and_other_consts {
 
 } my_dtype;
 
+typedef enum flag_pos {
+    CF = 0,
+    PF = 2,
+    ZF = 6,
+    SF = 7,
+    OF = 11
+} fpos;
 
 #define MINE_MY_DTYPE_H
 
