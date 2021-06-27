@@ -113,7 +113,24 @@ bool name_mentioned = true;
     
     string new_temp() {
         iTemp+=2;
+        iTmax = MAX(iTemp, iTmax);
         return "TEMP+" + to_string(iTemp); 
+    }
+    
+    string pushn(int n) {
+        string ret = "";
+        for(int i=0; i<n; ++i){
+            ret += "\tPUSH " + to_string(i<<1) + '\n'; 
+        }   
+        return ret; 
+    }
+    
+    string popn(int n) [
+        string ret = "";
+        for(int i=n-1; i>-1; i--){
+            ret += "\tPOP: " + to_string(i<<1) + '\n'; 
+        }
+        return ret; 
     }
     
     
@@ -165,7 +182,7 @@ bool name_mentioned = true;
     "ZF EQU 6\n"
     "SF EQU 7\n"
     "OF EQU 11\n"
-    "\nTEMP DW %d DUP (0)\n\n" // no of temp variables 
+    "\nTEMP DW %d DUP (0)\nFUNC DW 20 DUP(0)\n" // no of temp variables & func parameters 
     "%s" // the declarations 
     ".CODE\n"
     "\n"
@@ -341,7 +358,7 @@ unit : var_declaration {
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: unit : func_declaration\n\n%s\n\n", @1.last_line, $<text>$.c_str());
             
-            $<code>$ = $<code>1; 
+            $<code>$ = ""; 
         }
 
      | func_definition{
@@ -853,6 +870,18 @@ statement : var_declaration{
             
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3 + ' ' + $<text>4 + ' ' + $<text>5 + ' ' + $<text>6 + ' ' + $<text>7; 
             fprintf(lf, "Line %d: statement : FOR LPAREN expression_statement expression_statement expression RPAREN statement\n\n%s\n\n", @7.last_line, $<text>$.c_str());
+            
+            string beg = new_label(), aft = new_label(); 
+            
+            $<code>$ =  $<code>3 
+                        + beg + ":\n" 
+                        + $<code>4
+                        + "\tCMP " + $<temp>4 + ", 0\n"
+                        + "\tJZ " + aft + " ; !!line no " + to_string(@4.last_line) + "\n"
+                        + $<code>7 // for's statement
+                        + $<code>5 
+                        + "\tJMP " + beg + "\n"
+                        + aft + ":\n";
         }
 
       | IF LPAREN expression RPAREN statement %prec DUMMY_THEN{
@@ -864,6 +893,14 @@ statement : var_declaration{
             
             $<text>$ = $<text>1 + $<text>2 + $<text>3 + $<text>4 + $<text>5; 
             fprintf(lf, "At line no. %d statement : IF LPAREN expression RPAREN statement\n\n%s\n\n", @5.last_line, $<text>$.c_str());
+            
+            string aft = new_label(); 
+            
+            $<code>$ = $<code>[expression] 
+                        + "\tCMP " + $<temp>[expression] + ", 0\n"
+                        + "\tJZ " + aft + " ; line no " + to_string(@[expression].last_line) + "\n"
+                        + $<code>5
+                        + aft + ":\n";
         }
 
 	  | IF LPAREN expression RPAREN statement ELSE statement{
@@ -875,6 +912,17 @@ statement : var_declaration{
             
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3 + ' ' + $<text>4 + ' ' + $<text>5 + ' ' + $<text>6 + ' ' + $<text>7; 
             fprintf(lf, "Line %d: statement : IF LPAREN expression RPAREN statement ELSE statement\n\n%s\n\n", @7.last_line, $<text>$.c_str());
+            
+            string aft = new_label(), else_stmt = new_label(); 
+            
+            $<code>$ = $<code>[expression] 
+                        + "\tCMP " + $<temp>[expression] + ", 0\n"
+                        + "\tJZ " + else_stmt + " ; line no " + to_string(@[expression].last_line) + "\n"
+                        + $<code>5 // if's statement
+                        + "\tJMP " + aft + "\n"
+                        + else_stmt + ":\n"
+                        + $<code>7 // else's statement
+                        + aft + ":\n";
         }
 
 	  | WHILE LPAREN expression RPAREN statement{
@@ -886,6 +934,15 @@ statement : var_declaration{
             
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3 + ' ' + $<text>4 + ' ' + $<text>5; 
             fprintf(lf, "Line %d: statement : WHILE LPAREN expression RPAREN statement\n\n%s\n\n", @5.last_line, $<text>$.c_str());
+            
+            string beg = new_label(), aft = new_label(); 
+            
+            $<code>$ =  beg + ":\n" + $<code>[expression]
+                        + "\tCMP " + $<temp>[expression] + ", 0\n"
+                        + "\tJZ " + aft + " ; line no " + to_string(@[expression].last_line) + "\n"
+                        + $<code>5 // while's statement
+                        + "\tJMP " + beg + "\n"
+                        + aft + ":\n";
         }
 
 	  | PRINTLN LPAREN variable RPAREN SEMICOLON { // changed ID to variable 
@@ -955,8 +1012,8 @@ expression_statement 	: SEMICOLON	{
             fprintf(lf, "Line %d: expression_statement : expression SEMICOLON	\n\n%s\n\n", @2.last_line, $<text>$.c_str());
             
             $<code>$ = $<code>1; 
-            iTmax = MAX(iTemp, iTmax);
-            iTemp = -2; //reset iTemp 
+            $<temp>$ = $<temp>1; 
+            //iTemp = -2; //reset iTemp 
         }
 
 			;
