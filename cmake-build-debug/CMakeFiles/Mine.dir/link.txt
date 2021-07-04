@@ -1,1 +1,1 @@
-/usr/bin/c++ -g CMakeFiles/Mine.dir/x.cpp.o -o Mine 
+/usr/bin/c++ -g CMakeFiles/Mine.dir/x.cpp.o CMakeFiles/Mine.dir/optimizer.cpp.o -o Mine 

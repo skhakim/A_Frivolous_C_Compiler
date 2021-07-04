@@ -82,6 +82,9 @@
 				</MakeCommands>
 			</Target>
 		</Build>
+		<Unit filename="/home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine/optimizer.cpp">
+			<Option target="Mine"/>
+		</Unit>
 		<Unit filename="/home/fahim_hakim_15/L-3 T-1/CSE310/004 Intermediate Code Generation/Mine/x.cpp">
 			<Option target="Mine"/>
 		</Unit>

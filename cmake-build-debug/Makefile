@@ -142,6 +142,33 @@ Mine/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Mine.dir/build.make CMakeFiles/Mine.dir/build
 .PHONY : Mine/fast
 
+optimizer.o: optimizer.cpp.o
+
+.PHONY : optimizer.o
+
+# target to build an object file
+optimizer.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Mine.dir/build.make CMakeFiles/Mine.dir/optimizer.cpp.o
+.PHONY : optimizer.cpp.o
+
+optimizer.i: optimizer.cpp.i
+
+.PHONY : optimizer.i
+
+# target to preprocess a source file
+optimizer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Mine.dir/build.make CMakeFiles/Mine.dir/optimizer.cpp.i
+.PHONY : optimizer.cpp.i
+
+optimizer.s: optimizer.cpp.s
+
+.PHONY : optimizer.s
+
+# target to generate assembly for a file
+optimizer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Mine.dir/build.make CMakeFiles/Mine.dir/optimizer.cpp.s
+.PHONY : optimizer.cpp.s
+
 x.o: x.cpp.o
 
 .PHONY : x.o
@@ -178,6 +205,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... Mine"
+	@echo "... optimizer.o"
+	@echo "... optimizer.i"
+	@echo "... optimizer.s"
 	@echo "... x.o"
 	@echo "... x.i"
 	@echo "... x.s"

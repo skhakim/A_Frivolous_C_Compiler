@@ -1,4 +1,5 @@
 file(REMOVE_RECURSE
+  "CMakeFiles/Mine.dir/optimizer.cpp.o"
   "CMakeFiles/Mine.dir/x.cpp.o"
   "Mine"
   "Mine.pdb"
