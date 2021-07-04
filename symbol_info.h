@@ -300,6 +300,8 @@ public:
         return arr[x];
     }
 
+    //virtual string get_push_code
+
     string type_id() override {
         return string(typeid(arr).name());
     }
@@ -319,6 +321,8 @@ public:
     string declaration() {
         return get_code() + " DW " + to_string(size) + " DUP (0)\r\n";
     }
+
+    int get_size() { return size; }
 };
 
 

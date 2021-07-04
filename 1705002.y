@@ -117,7 +117,7 @@ bool name_mentioned = true;
         return "TEMP+" + to_string(iTemp); 
     }
     
-    string pushn(int n) {
+    /*string pushn(int n) {
         string ret = "";
         for(int i=0; i<n; ++i){
             ret += "\tPUSH " + to_string(i<<1) + '\n'; 
@@ -125,13 +125,13 @@ bool name_mentioned = true;
         return ret; 
     }
     
-    string popn(int n) [
+    string popn(int n) {
         string ret = "";
         for(int i=n-1; i>-1; i--){
             ret += "\tPOP: " + to_string(i<<1) + '\n'; 
         }
         return ret; 
-    }
+    }*/
     
     
 }
@@ -140,17 +140,23 @@ bool name_mentioned = true;
     queue<_info*> *res_q = new queue<_info*>;
     string res_func; 
     bool func_call = false; 
-    void insert_res_q() {
+    string insert_res_q() {
         // printf("\tsizeof res_q: %d\n", res_q->size());
         /*if(res_func.size()){
             table.func_insert(_TBdef, res_func, _temp); 
         }*/
+        
+        string res_func = ""; 
+        
         while(res_q->size()) {
             _info *x = res_q->front();
             res_q->pop(); 
             if(x->second == _INT) {
-                    if(!table.var_insert<int>(x->first, _temp)){
+                    if(table.var_insert<int>(x->first, _temp)){
                         //yyerror_multiple((char*)((est + "Multiple definition of " + x->first).c_str()));
+                        symbol_info* temp = table.lookup(x->first, _temp);
+                        res_func += "\tPOP " + temp->get_code() + "\n"; 
+                        
                     }
             }
             else if(x->second == _FLOAT) {
@@ -162,9 +168,25 @@ bool name_mentioned = true;
                 yyerror("Variable declared void!!"); 
             }
         }
+        
+        return res_func; 
     }
     
     extern int yylineno; 
+    
+    string push_temp_vars(int m) {
+        string ret = "";
+        for(int i=0; i<=m; i+=2)
+            ret += "\tPUSH TEMP+" + to_string(i) + "\n"; 
+        return ret; 
+    }    
+    
+    string pop_temp_vars(int m) {
+        string ret = "";
+        for(int i=0; i<=m; i+=2)
+            ret += "\tPOP TEMP+" + to_string(m-i) + "\n"; 
+        return ret; 
+    }    
 }
 
 %code {         //stores the file things 
@@ -186,16 +208,16 @@ bool name_mentioned = true;
     "%s" // the declarations 
     ".CODE\n"
     "\n"
-    "MAIN PROC\n"
+    /*"MAIN PROC\n"
     "\t;DATA SEGMENT INITIALIZATION\n"
     "    MOV AX, @DATA\n"
-    "    MOV DS, AX\n\n"
+    "    MOV DS, AX\n\n"*/
     "%s" // the codes of main function 
-    "\t;DOS EXIT\n"
+    /*"\t;DOS EXIT\n"
     "    MOV AH, 4CH\n"
     "    INT 21H\n"
     "\n" 
-    "MAIN ENDP\n"
+    "MAIN ENDP\n"*/
     "%s" // other functions
     "\n"
     "OUTDEC PROC \n"
@@ -323,8 +345,11 @@ start : program
 		//cout << table.declaration();  
 		
 		//fseek(cf, 0x45, )
+		if(!no_errors)
+            fprintf(cf, _asm.c_str(), 1+iTmax/2, table.declaration().c_str(), $<code>[program].c_str(), ""); 
 		
-        fprintf(cf, _asm.c_str(), 1+iTmax/2, table.declaration().c_str(), $<code>[program].c_str(), ""); 
+		
+		
 		break; 
 		//printf("\nShould not get printed!\n");
 	}
@@ -443,7 +468,15 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON{
 		 
 
 		 
-func_definition : type_specifier ID LPAREN parameter_list RPAREN { *res_q = queue<_info*>(*$<val.decs>[parameter_list]);/* }  compound_statement { */ 
+func_definition : type_specifier ID LPAREN parameter_list RPAREN 
+{ 
+            $<code>[ID] = "\n\n" + $<text>[ID] + " PROC \n";
+            $<code>[ID] += "; TAKES 16-BIT INTEGER INPUT(S) IN THE STACK\n";
+            $<code>[ID] += ($<type>1 == _INT) ? "; OUTPUTS AN 16-BIT INTEGER IN DX\n" : "; PRODUCES NO OUTPUT\n";
+            $<code>[ID] += "\tPOP CX\n\n";
+            
+
+            *res_q = queue<_info*>(*$<val.decs>[parameter_list]);/* }  compound_statement { */ 
             func_info* cur_func; 
             symbol_info* prev = table.lookup($<text>2, _temp); 
             if(prev){       // something of this name exists 
@@ -508,7 +541,8 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN { *res_q = queu
             }
             func_call = true; 
             table.enter_scope(); 
-            insert_res_q();
+            $<code>[ID] += insert_res_q();
+            //cout << $<code>[func_definition]; 
             yyerrok; 
         } compound_statement {
             //cout << "Did you get this? " << __LINE__ << endl; 
@@ -516,6 +550,12 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN { *res_q = queu
             //fprintf(lf, "\n%s\n%s\n", $<text>6.c_str(), $<text>[compound_statement].c_str() );
             fprintf(lf, "Line %d: func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statement\n\n%s\n\n", @[compound_statement].last_line, $<text>$.c_str());
             //cout << "Did you get this? " << __LINE__ << " " << $<text>$ << endl; 
+            
+            // cout << "LATER :" ;
+            $<code>[func_definition] = $<code>[ID];
+            $<code>[ID] = ""; 
+            $<code>[func_definition] += $<code>[compound_statement]; 
+            $<code>[func_definition] += "\tPUSH CX\n\tRET\nENDP " + $<text>[ID] + "\n\n\n"; 
         }
 
 		| type_specifier ID LPAREN RPAREN { /* compound_statement{
@@ -565,9 +605,19 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN { *res_q = queu
             //cout << "Did you get this? " << __LINE__ << " " << $<text>$ << endl; 
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3 + ' ' + $<text>4 + ' ' + $<text>[compound_statement]; 
             fprintf(lf, "Line %d: func_definition : type_specifier ID LPAREN RPAREN compound_statement\n\n%s\n\n", @[compound_statement].last_line, $<text>$.c_str());
+            
+            $<code>$ = "\n\n" + $<text>[ID] + " PROC \n";
+            $<code>$ += "; TAKES NO INPUT\n";
+            $<code>$ += ($<type>1 == _INT) ? "; OUTPUTS AN 16-BIT INTEGER IN DX\n" : "; PRODUCES NO OUTPUT\n";
+            $<code>$ += "\tPOP CX\n\n";
+            
+            
+            $<code>$ += $<code>[compound_statement]; 
+            $<code>$ += "\tPUSH CX\n\tRET\nENDP " + $<text>[ID] + "\n\n\n"; 
         }
         
-        | type_specifier MAIN LPAREN RPAREN {
+        | type_specifier MAIN LPAREN RPAREN 
+        {
             symbol_info* prev = table.lookup($<text>2, _temp); 
             if(prev){       // something of this name exists 
                 func_info* prev_func = dynamic_cast<func_info*>(prev); 
@@ -602,7 +652,19 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN { *res_q = queu
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3 + ' ' + $<text>4 + ' ' + $<text>[compound_statement]; 
             fprintf(lf, "Line %d: func_definition : type_specifier ID LPAREN RPAREN compound_statement\n\n%s\n\n", @[compound_statement].last_line, $<text>$.c_str());
             
-            $<code>$ = $<code>[compound_statement]; 
+            
+            $<code>$ = est + "MAIN PROC\n"
+                        +"\t;DATA SEGMENT INITIALIZATION\n"
+                        +"    MOV AX, @DATA\n"
+                        +"    MOV DS, AX\n\n"
+                        + regex_replace($<code>[compound_statement]
+                                            , regex("RET .*\n"), "JMP DOS_EXIT\n\n") // the codes of main function 
+                        +"\t;DOS EXIT\n"
+                        +"DOS_EXIT: \n"
+                        +"    MOV AH, 4CH\n"
+                        +"    INT 21H\n"
+                        +"\n" 
+                        +"MAIN ENDP\n";  
         }
 
  		;		
@@ -677,11 +739,19 @@ compound_statement : LCURL { if(!func_call) {
                             } 
                                 func_call = false; } statements RCURL{
             $<text>$ = $<text>1 + '\n' + $<text>[statements] + '\n' + $<text>[RCURL]; 
-            fprintf(lf, "Line %d: compound_statement : LCURL statements RCURL\n\n%s\n\n", @[RCURL].last_line, $<text>$.c_str());
+            fprintf(lf, "ine %d: compound_statement : LCURL statements RCURL\n\n%s\n\n", @[RCURL].last_line, $<text>$.c_str());
             table.print_active_tables(lf); 
+            
+            
+            //cout << table.push_current_scope();
+            //cout << table.pop_current_scope();
+            
+            
             table.exit_scope(); 
             
             $<code>$ = $<code>[statements]; 
+            
+            
         }
 
  		    | LCURL { if(!func_call) {
@@ -691,7 +761,8 @@ compound_statement : LCURL { if(!func_call) {
             $<text>$ = $<text>1 + ' ' + $<text>[RCURL]; 
             fprintf(lf, "Line %d: compound_statement : LCURL RCURL\n\n%s\n\n", @[RCURL].last_line, $<text>$.c_str()); 
             table.print_current_table(lf); 
-            table.exit_scope();
+            table.exit_scope(); 
+            
         }
  		    ;
  		    
@@ -814,12 +885,16 @@ statements : statement{
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: statements : statement\n\n%s\n\n", @1.last_line, $<text>$.c_str());
             $<code>$ = $<code>1; 
+            
+            iTemp = -2; 
         }
 
 	   | statements statement{
             $<text>$ = $<text>1 + '\n' + $<text>2; 
             fprintf(lf, "Line %d: statements : statements statement\n\n%s\n\n", @2.last_line, $<text>$.c_str());
             $<code>$ = $<code>1 + $<code>2; 
+            
+            iTemp = -2; 
         } 
         
         | error  {
@@ -845,13 +920,13 @@ statements : statement{
 statement : var_declaration{
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: statement : var_declaration\n\n%s\n\n", @1.last_line, $<text>$.c_str());
-            $<code>$ = $<code>1; 
+            $<code>$ = "; " + $<text>1 + '\n' + $<code>1; 
         }
 
 	  | expression_statement{
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: statement : expression_statement\n\n%s\n\n", @1.last_line, $<text>$.c_str());
-            $<code>$ = $<code>1; 
+            $<code>$ = "; " + $<text>1 + '\n' + $<code>1; 
         }
 
 	  | compound_statement{
@@ -946,11 +1021,11 @@ statement : var_declaration{
         }
 
 	  | PRINTLN LPAREN variable RPAREN SEMICOLON { // changed ID to variable 
-            if(!table.lookup($<text>3, _temp)) {
+            /*if(!table.lookup($<text>3, _temp)) {
                 error_line_no = @3.last_line; 
                 yyerror((char*)((est + "Undeclared variable " + $<text>3).c_str()));
                 yyerrok; 
-            }
+            }*/
             
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3 + ' ' + $<text>4 + ' ' + $<text>5; 
             fprintf(lf, "Line %d: statement : PRINTLN LPAREN ID RPAREN SEMICOLON\n\n%s\n\n", @4.last_line, $<text>$.c_str());
@@ -959,7 +1034,7 @@ statement : var_declaration{
             $<temp>$ = $<val.infoptr>[variable]->get_code(); 
             
             if($<temp>$.find('@') != string::npos) { //an array 
-                $<code>$ += $<idx>1; 
+                $<code>$ += $<idx>3; 
                 $<temp>$ += "[BX]";
             }
             
@@ -975,11 +1050,18 @@ statement : var_declaration{
             }
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3; 
             fprintf(lf, "Line %d: statement : RETURN expression SEMICOLON\n\n%s\n\n", @3.last_line, $<text>$.c_str());
+        
+            $<code>$ = $<code>2;
+            $<code>$ += "\n\tMOV DX, " + $<temp>2 
+                        + "\n\tPUSH CX"
+                        + "\n\tRET ; line no: " + to_string(@3.last_line) + "\n"; 
         }
         
         | RETURN SEMICOLON {
             $<text>$ = $<text>1 + ' ' + $<text>2; // + ' ' + $<text>3; 
             fprintf(lf, "Line %d: statement : RETURN SEMICOLON\n\n%s\n\n", @2.last_line, $<text>$.c_str());
+            
+            $<code>$ = "\n\tRET ; line no: " + to_string(@2.last_line) + "\n"; 
         }
         
         | func_definition {
@@ -1436,6 +1518,26 @@ factor	: variable {
 
             $<text>$ = $<text>1+$<text>2+$<text>3+$<text>4; 
             fprintf(lf, "Line %d: factor : ID LPAREN argument_list RPAREN\n\n%s\n\n", @4.last_line, $<text>$.c_str());
+            int legTemp = iTemp;
+        
+            /*if($<text>[ID] == "fibo") {
+                cout << table.push_current_scope(); 
+                table.print_active_tables(cout); 
+            }*/
+        
+            $<code>$ = $<code>[argument_list]; 
+            $<code>$ += "\tPUSH CX ; save ret address"; 
+            $<code>$ += table.push_current_scope(); 
+            $<code>$ += push_temp_vars(legTemp); 
+            $<code>$ += $<idx>[argument_list];
+            $<code>$ += "\tCALL " + $<text>[ID] + "\n"; 
+            if($<type>$ == _INT){
+                $<temp>$ = new_temp(); 
+                $<code>$ += "\tMOV " + $<temp>$ + ", DX\n";
+            }
+            $<code>$ += pop_temp_vars(legTemp); 
+            $<code>$ += table.pop_current_scope();
+            $<code>$ += "\tPOP CX ; retrieve ret address\n"; 
         }
         | LPAREN expression RPAREN {
             $<type>$ = $<type>2; 
@@ -1495,6 +1597,9 @@ argument_list : arguments{
             
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: argument_list : arguments\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            
+            $<code>$ = $<code>1 + " ; line no " + to_string(@1.last_line) + "\n"; 
+            $<idx>$ = $<idx>1; 
 	      } 
 	      | %empty {
             $<val.args>$ = new queue<int>;
@@ -1512,8 +1617,11 @@ arguments : arguments COMMA logic_expression {
             
             $<text>$ = $<text>1 + ' ' + $<text>2 + ' ' + $<text>3; 
             fprintf(lf, "Line %d: arguments : arguments COMMA logic_expression\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            
+            $<code>$ = $<code>1 + $<code>3; 
+            $<idx>$ = "\tPUSH " + $<temp>3 + "\n" + $<idx>1; 
 	      }
-	      | logic_expression {
+	      | logic_expression { 
 	      
             $<val.args>$ = new queue<int>; /* val.args keeps the argument types */
             $<val.args>$->emplace($<type>1); 
@@ -1521,6 +1629,9 @@ arguments : arguments COMMA logic_expression {
 	      
             $<text>$ = $<text>1; 
             fprintf(lf, "Line %d: arguments : logic_expression\n\n%s\n\n", @1.last_line, $<text>$.c_str());
+            
+            $<code>$ = $<code>1; 
+            $<idx>$ = "\tPUSH " + $<temp>1 + "\n"; 
 	      } 
 	      ;
 

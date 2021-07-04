@@ -1,11 +1,14 @@
 #include <iostream>
 #include <string>
+#include <bits/stdc++.h>
+
+using namespace std;
 
 int main() {
-    std::string x = "Hello, %d, world";
+    std::string yx = "Hello, %d, world";
 
-    printf(x.c_str(), 5);
-    "\n"
+    //printf(x.c_str(), 5);
+    string x = "\n"
     "OUTDEC PROC \n"
     "; PRINTS AX AS A SIGNED DECIMAL INTEGER \n"
     "; INPUT : AX \n"
@@ -71,7 +74,7 @@ int main() {
     "        POP DX\n"
     "        ; ADD 48 TO GET THE DIGIT ASCII \n"
     "        ADD DX, 48     \n"
-    "        INT 21H \n"
+    "        INT 21H \n RET fhewwdjfewhfb;  nhne"
     "        LOOP @PRINT_LOOP \n"
     "        \n    \n"
     "    MOV DL, CR\n"
@@ -88,6 +91,9 @@ int main() {
     "    ; RETURN TO THE CALLER \n"
     "    RET                    \n"
     "    \n"
-    "OUTDEC ENDP   "
+    "OUTDEC ENDP   ";
+
+    cout << regex_replace(x, regex("RET .*\n"), ("JMP DOS_EXIT \n"));
+
     return 0;
 }

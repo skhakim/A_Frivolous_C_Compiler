@@ -144,6 +144,42 @@ public:
         return temp + "\r\n\r\n";
     }
 
+    string push_scope() {
+        string temp = "";
+        if(count(id.begin(), id.end(), '_') > 1)
+            temp += parent->push_scope();
+        for (int j = 0; j < i_buckets; ++j) {
+            if (h_table[j])
+                if(arr_info<int>* k = dynamic_cast<arr_info<int>*>(h_table[j])) {
+                    for(int i=0; i<k->get_size(); ++i){
+                        temp += "\n\tPUSH " + h_table[j]->get_code() + "+" + to_string(i<<1);
+                    }
+                }
+                else {
+                    temp += "\n\tPUSH " + h_table[j]->get_code();
+                }
+        }
+        return temp + "\n\n";
+    }
+
+    string pop_scope() {
+        string temp = "";
+        for (int j = 0; j < i_buckets; ++j) {
+            if (h_table[i_buckets-j-1])
+                if(arr_info<int>* k = dynamic_cast<arr_info<int>*>(h_table[i_buckets-j-1])) {
+                    for(int i=k->get_size()-1; i>=0; --i){
+                        temp += "\n\tPOP " + h_table[i_buckets-j-1]->get_code() + "+" + to_string(i<<1);
+                    }
+                }
+                else {
+                    temp += "\n\tPOP " + h_table[i_buckets - j - 1]->get_code();
+                }
+        }
+        if(count(id.begin(), id.end(), '_') > 1)
+            temp += parent->pop_scope();
+        return temp + "\n\n";
+    }
+
     //getters and setters and destructors
     [[nodiscard]] int getIBuckets() const {
         return i_buckets;

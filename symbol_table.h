@@ -123,6 +123,16 @@ public:
         return temp;
     }
 
+    string push_current_scope() {
+        if(cur_scope)
+            return cur_scope->push_scope();
+    }
+
+    string pop_current_scope() {
+        if(cur_scope)
+            return cur_scope->pop_scope();
+    }
+
     int get_no_buckets() const {
         return def_buckets;
     }
